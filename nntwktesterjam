@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>Neural Network Example</title>
+</head>
+
+<body>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+  <script>
+    var network_input_count = 2;
+    var network_hidden_layer_count = 2;
+    var network_hidden_layer_width = 3;
+    var network_output_count = 1;
+
+    var screen_width = 400;
+    var screen_height = 400;
+    var fr = 60;
+    var dots;
+    var net;
+    var amount_of_inputs = 23; //23 preferred max
+    var test_input_set = [];
+    var test_input_results = [];
+    var completed = false;
+    var dot_animation_timer_max = 5;
+    var dot_animation_timer = dot_animation_timer_max;
+    var dot_count = 0;
+    var dot_max = 25;
+    var completed_text = " - PROCESSING";
+    var max_accuracy = 0.98; //percent target accuracy
+    var cur_accuracy = 0;
+    //test_input_set = [[1,9],[2,8],[3,7],[4,6],[5,5],[6,4],[7,3],[8,2],[9,1]];
+    for (var i = test_input_set.length; i < amount_of_inputs; i++) {
+      test_input_set.push([my_random(1, 10), my_random(1, 10)]);
+    }
+    for (var i = 0; i < test_input_set.length; i++) {
+      test_input_results.push([test_input_set[i][0] * test_input_set[i][1] / 100]);
+      //test_input_results.push([Math.pow(test_input_set[i][0], test_input_set[i][1]/100)]);
+    }
+
+    var training_iterations = 50000;
+    var training_per_step = 75;
+
+    var print_strings = [];
+    var new_line = document.createElement("DIV");
+    var new_line_2 = document.createElement("DIV");
+    var input_box = document.createElement("INPUT");
+    var input_box_2 = document.createElement("INPUT");
+    var input_button = document.createElement("BUTTON");
+    var answer_label = document.createElement("DIV");
+    var info_text = document.createElement("DIV");
+    input_button.innerHTML = "Multiply";
+    new_line.innerHTML = "\n";
+    new_line_2.innerHTML = "\n";
+    answer_label.innerHTML = "\n";
+    info_text.innerHTML = "quite funny imagine just running based on GPU hehe.";
+
+    function setup() {
+      createCanvas(screen_width, screen_height);
+      frameRate(fr);
+      document.body.appendChild(new_line);
+      document.body.appendChild(input_box);
+      document.body.appendChild(input_box_2);
+      document.body.appendChild(input_button);
+      document.body.appendChild(new_line_2);
+      document.body.appendChild(answer_label);
+      document.body.appendChild(info_text);
+
+      net = new NeuralNet(network_input_count,
+        network_hidden_layer_count,
+        network_hidden_layer_width,
+        network_output_count);
+      input_button.onclick = function () {
+        var number_1 = input_box.value;
+        var number_2 = input_box_2.value;
+        if (!isNaN(number_1) && !isNaN(number_2) && number_1 < 10 && number_2 < 10) {
+          var neural_network_guess = net.ForwardPropagate([number_1, number_2]);
+          answer_label.innerHTML = neural_network_guess * 100 + "\n";
+        }
+      };
+
+      for (var i = 0; i < test_input_results.length; i++) {
+        print_strings.push([]);
+        print_strings[i].push("");
+        print_strings[i].push("");
+        print_strings[i].push("");
+      }
+    }
+
+    function draw() {
+      background(0);
+      stroke(0, 255, 0);
+      fill(0, 255, 0);
+      if (!completed) {
+        var propagate_result = 0;
+        var results = [];
+        for (var k = 0; k < training_per_step; k++) {
+          for (var i = 0; i < test_input_set.length; i++) {
+            propagate_result = net.ForwardPropagate(test_input_set[i]);
+            net.BackPropagateError(test_input_results[i]);
+            net.UpdateWeights(test_input_set[i]);
+            if (k == training_per_step - 1) {
+              results.push(propagate_result);
+            }
+            if (k == training_per_step - 1) {
+              print_strings[i][0] = "Input: " + test_input_set[i];
+              print_strings[i][1] = "Output: " + propagate_result * 100;
+              print_strings[i][2] = "Expected: " + Math.floor(test_input_results[i][0] * 100);
+            }
+          }
+        }
+        cur_accuracy = check_output_accuracy(test_input_results, results);
+        if (cur_accuracy >= max_accuracy)
+          completed = true;
+      }
+
+      for (var i = 0; i < test_input_set.length; i++) {
+        test_input_set[i] = ([my_random(1, 10), my_random(1, 10)]);
+      }
+      for (var i = 0; i < test_input_set.length; i++) {
+        test_input_results[i] = ([test_input_set[i][0] * test_input_set[i][1] / 100]);
+      }
+
+      var runs = 0;
+      var xx = 5;
+      var yy = 15;
+      for (var i = 0; i < print_strings.length; i++) {
+        var cur_string_list = print_strings[i];
+        var yy = 15;
+        for (var k = 0; k < cur_string_list.length; k++) {
+          xx = 5;
+          if (k == 1) xx = 80;
+          if (k == 2) xx = 270;
+          text(cur_string_list[k], xx, yy * i + yy);
+          runs++;
+        }
+        runs++;
+      }
+      xx = 5;
+      if (completed) completed_text = " - COMPLETE!";
+      else if (dot_animation_timer <= 0) {
+        dot_count++;
+        if (dot_count > dot_max) {
+          completed_text = " - PROCESSING";
+          dot_count = 0;
+        } else
+          completed_text += ".";
+        dot_animation_timer = dot_animation_timer_max;
+      } else
+        dot_animation_timer--;
+      text("Target  Accuracy: " + max_accuracy * 100 + "%", xx, yy * (print_strings.length + 1));
+      text("Current Accuracy: " + Math.round((cur_accuracy * 100) * 10000) / 10000 + "%", xx, yy * (print_strings.length + 2));
+      text(completed_text, xx, yy * (print_strings.length + 3));
+    }
+
+    function check_output_accuracy(expected_outputs, actual_outputs) {
+      var accuracies = [];
+      for (var i = 0; i < expected_outputs.length; i++) {
+        var cur_expected = expected_outputs[i][0];
+        var cur_actual = actual_outputs[i][0];
+        var _max = Math.max(cur_expected, cur_actual);
+        var _min = Math.min(cur_expected, cur_actual);
+        var accur = _min / _max;
+        accuracies.push(accur);
+      }
+      var sum = 0;
+      var mean = 0;
+      for (var i = 0; i < accuracies.length; i++) {
+        sum += accuracies[i];
+      }
+      mean = sum / accuracies.length;
+      return mean;
+    }
+
+    function my_random(min, max) {
+      min = Math.ceil(min);
+      max = Math.floor(max);
+      return Math.floor(Math.random() * (max - min)) + min;
+    }
+
+    function sigmoid(t) {
+      return 1 / (1 + Math.pow(Math.E, -t));
+    }
+
+    function d_sigmoid(t) {
+      return t * (1 - t);
+    }
+
+    function NeuralNet(inputCount, layerCount, layerWidth, outputCount) {
+      this.network = [];
+      this.hiddenLayerCount = layerCount;
+      this.input_count = inputCount;
+      this.layer_width = layerWidth;
+      this.bias = 1.0;
+      this.learning_rate = 0.15; // 15% learning rate
+
+      var inputs_this_layer = inputCount;
+      for (var i = 0; i < this.hiddenLayerCount; i++) {
+        var new_layer = [];
+        for (var w = 0; w < layerWidth; w++) {
+          if (i > 0)
+            inputs_this_layer = this.network[i - 1].length;
+          var new_neuron = {
+            'weights': [],
+            'output': 0,
+            'delta': 0
+          };
+          for (var n = 0; n < inputs_this_layer; n++) {
+            new_neuron.weights.push(Math.random());
+          }
+          new_neuron.weights.push(this.bias); // bias weight
+          new_layer.push(new_neuron);
+        }
+        inputs_this_layer = new_layer.length;
+        this.network.push(new_layer);
+      }
+
+      var out_layer = [];
+      for (var i = 0; i < outputCount; i++) {
+        var output_inputs = inputCount;
+        if (this.hiddenLayerCount > 0)
+          output_inputs = inputs_this_layer;
+        var new_neuron = {
+          'weights': [],
+          'output': 0,
+          'delta': 0
+        };
+        for (var n = 0; n < output_inputs; n++) {
+          new_neuron.weights.push(Math.random());
+        }
+        new_neuron.weights.push(this.bias);
+        out_layer.push(new_neuron);
+      }
+      this.network.push(out_layer);
+
+      this.SumNeuron = function (given_weights, given_inputs) {
+        var sum = given_weights[given_weights.length - 1];
+        for (var i = 0; i < given_weights.length - 1; i++) {
+          sum += given_weights[i] * given_inputs[i];
+        }
+        return sum;
+      };
+
+      this.ActivateNeuron = function (sum) {
+        return sigmoid(sum);
+      };
+
+      this.DeriveActivateNeuron = function (out) {
+        return d_sigmoid(out);
+      };
+
+      this.UpdateWeights = function (inputs) {
+        var cur_inputs = inputs;
+        for (var i = 0; i < this.network.length; i++) {
+          var cur_layer = this.network[i];
+          if (i != 0) {
+            var prev_layer = this.network[i - 1];
+            cur_inputs = [];
+            for (var k = 0; k < prev_layer.length; k++) {
+              var cur_neuron_prev = prev_layer[k];
+              cur_inputs.push(cur_neuron_prev.output);
+            }
+          }
+          for (var n = 0; n < cur_layer.length; n++) {
+            var cur_neuron = cur_layer[n];
+            for (var j = 0; j < cur_inputs.length; j++) {
+              cur_neuron.weights[j] += this.learning_rate * cur_neuron.delta * cur_inputs[j];
+            }
+            cur_neuron.weights[cur_neuron.weights.length - 1] += this.learning_rate * cur_neuron.delta;
+          }
+        }
+      };
+
+      this.ForwardPropagate = function (input) {
+        var final_output = 0;
+        var cur_input = input;
+        for (var i = 0; i < this.network.length; i++) {
+          var cur_layer = this.network[i];
+          var new_inputs = [];
+          for (var n = 0; n < cur_layer.length; n++) {
+            var cur_neuron = cur_layer[n];
+            var cur_neuron_sum = this.SumNeuron(cur_neuron.weights, cur_input);
+            cur_neuron.output = this.ActivateNeuron(cur_neuron_sum);
+            new_inputs.push(cur_neuron.output);
+          }
+          cur_input = new_inputs;
+        }
+        final_output = cur_input;
+        return final_output;
+      };
+
+      this.BackPropagateError = function (expected_outputs) {
+        for (var i = this.network.length - 1; i >= 0; i--) {
+          var cur_layer = this.network[i];
+          var errors = [];
+          if (i != this.network.length - 1) {
+            for (var k = 0; k < cur_layer.length; k++) {
+              var error = 0;
+              var prev_layer = this.network[i + 1];
+              for (var o = 0; o < prev_layer.length; o++) {
+                var cur_neuron_prev = prev_layer[o];
+                error += cur_neuron_prev.weights[k] * cur_neuron_prev.delta;
+              }
+              errors.push(error);
+            }
+          } else {
+            for (var k = 0; k < cur_layer.length; k++) {
+              var cur_neuron = cur_layer[k];
+              errors.push(expected_outputs[k] - cur_neuron.output);
+            }
+          }
+          for (var k = 0; k < cur_layer.length; k++) {
+            cur_neuron = cur_layer[k];
+            cur_neuron.delta = errors[k] * this.DeriveActivateNeuron(cur_neuron.output);
+          }
+        }
+      };
+    }
+
+  </script>
+</body>
+
+</html>
